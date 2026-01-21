@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <link rel="icon" href="favicon.png">
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -14,15 +13,32 @@ body{margin:0;font-family:Arial;background:#0b1220;color:#e5e7eb}
 .hidden{display:none}
 .container{max-width:900px;margin:40px auto;padding:20px}
 .card{background:#020617;border-radius:22px;padding:25px;margin-bottom:25px}
-input,select,button{width:100%;padding:14px;margin-top:10px;border-radius:14px;border:none}
+input,select,button{
+  width:100%;padding:14px;margin-top:10px;
+  border-radius:14px;border:none
+}
 input,select{background:#0f172a;color:white;border:1px solid #1e293b}
 button{background:#6366f1;color:white;font-weight:bold;cursor:pointer}
 button:disabled{background:#334155;color:#94a3b8}
-.error{color:#f87171;font-size:14px;margin-top:6px}
+.error{font-size:14px;margin-top:8px}
+.success{color:#22c55e}
+.fail{color:#f87171}
+
 .balance-box{display:flex;justify-content:space-between;gap:20px}
 .shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
 .product{background:#020617;padding:20px;border-radius:18px}
 .price{color:#38bdf8;font-size:22px}
+
+/* 🎉 CONFETTI */
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:999}
+.confetti span{
+  position:absolute;width:10px;height:14px;
+  animation:fall linear forwards
+}
+@keyframes fall{
+  from{transform:translateY(-10vh) rotate(0)}
+  to{transform:translateY(110vh) rotate(720deg)}
+}
 </style>
 </head>
 <body>
@@ -35,7 +51,6 @@ button:disabled{background:#334155;color:#94a3b8}
   <input id="loginLogin" placeholder="Нік або ID">
   <input id="loginPassword" type="password" placeholder="Пароль">
   <button id="loginBtn">Увійти</button>
-  <div class="error" id="loginError"></div>
   <p style="text-align:center">
     <a href="#" id="toRegister">Реєстрація</a>
   </p>
@@ -47,7 +62,6 @@ button:disabled{background:#334155;color:#94a3b8}
   <input id="regLogin" placeholder="Нік або ID">
   <input id="regPassword" type="password" placeholder="Пароль">
   <button id="registerBtn">Створити</button>
-  <div class="error" id="regError"></div>
   <p style="text-align:center">
     <a href="#" id="toLogin">Назад</a>
   </p>
@@ -75,7 +89,7 @@ button:disabled{background:#334155;color:#94a3b8}
     <input id="robloxNick" placeholder="Roblox нік">
     <input id="withdrawAmount" type="number" placeholder="Сума">
     <button id="withdrawBtn">Зняти</button>
-    <div class="error" id="withdrawError"></div>
+    <div id="withdrawMsg" class="error"></div>
   </div>
 
   <button id="logoutBtn" style="background:#dc2626">Вийти</button>
@@ -83,8 +97,10 @@ button:disabled{background:#334155;color:#94a3b8}
 
 </div>
 
+<div class="confetti" id="confetti"></div>
+
 <script>
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
 
   /* 🔑 SUPABASE */
   const supabase = window.supabase.createClient(
@@ -94,72 +110,59 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let userId = localStorage.getItem("user_id");
   let balances = {};
-  let limits = {};
 
-  const loginView = document.getElementById("loginView");
+  const loginView = loginViewEl = document.getElementById("loginView");
   const registerView = document.getElementById("registerView");
   const profileView = document.getElementById("profileView");
 
-  /* VIEW SWITCH */
-  document.getElementById("toRegister").onclick = e=>{
+  /* SWITCH */
+  toRegister.onclick = e=>{
     e.preventDefault();
     loginView.classList.add("hidden");
     registerView.classList.remove("hidden");
   };
-  document.getElementById("toLogin").onclick = e=>{
+  toLogin.onclick = e=>{
     e.preventDefault();
     registerView.classList.add("hidden");
     loginView.classList.remove("hidden");
   };
 
   /* LOGIN */
-  document.getElementById("loginBtn").onclick = async ()=>{
-    loginError.textContent="";
-    const l = loginLogin.value.trim();
-    const p = loginPassword.value;
-
+  loginBtn.onclick = async ()=>{
     const { data } = await supabase
-      .from("users").select("id,password")
-      .eq("login",l).single();
+      .from("users")
+      .select("id,password")
+      .eq("login", loginLogin.value.trim())
+      .single();
 
-    if(!data || data.password !== p){
-      loginError.textContent="Невірні дані";
-      return;
-    }
+    if(!data || data.password !== loginPassword.value) return;
 
-    localStorage.setItem("user_id",data.id);
-    userId=data.id;
+    localStorage.setItem("user_id", data.id);
+    userId = data.id;
     initProfile();
   };
 
   /* REGISTER */
-  document.getElementById("registerBtn").onclick = async ()=>{
-    regError.textContent="";
-    const l = regLogin.value.trim();
-    const p = regPassword.value;
-
+  registerBtn.onclick = async ()=>{
     const { data, error } = await supabase
-      .from("users").insert({login:l,password:p})
+      .from("users")
+      .insert({
+        login: regLogin.value.trim(),
+        password: regPassword.value
+      })
       .select().single();
 
-    if(error){
-      regError.textContent="Логін зайнятий";
-      return;
-    }
+    if(error) return;
 
     await supabase.from("balances")
-      .insert({user_id:data.id,personal:0,farming:0});
+      .insert({ user_id:data.id, personal:0, farming:0 });
 
-    await supabase.from("withdraw_limits")
-      .insert({user_id:data.id,personal_limit:500,farming_limit:1000});
-
-    localStorage.setItem("user_id",data.id);
-    userId=data.id;
+    localStorage.setItem("user_id", data.id);
+    userId = data.id;
     initProfile();
   };
 
-  /* LOGOUT */
-  document.getElementById("logoutBtn").onclick = ()=>{
+  logoutBtn.onclick = ()=>{
     localStorage.removeItem("user_id");
     location.reload();
   };
@@ -168,88 +171,101 @@ document.addEventListener("DOMContentLoaded", async () => {
     loginView.classList.add("hidden");
     registerView.classList.add("hidden");
     profileView.classList.remove("hidden");
-
     await loadBalances();
-    await loadLimits();
     await loadShop();
   }
 
   async function loadBalances(){
     const { data } = await supabase
-      .from("balances").select("*")
-      .eq("user_id",userId).single();
-    balances=data;
-    personal.textContent=data.personal;
-    farming.textContent=data.farming;
-  }
+      .from("balances")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
 
-  async function loadLimits(){
-    const { data } = await supabase
-      .from("withdraw_limits").select("*")
-      .eq("user_id",userId).single();
-    limits=data;
+    balances = data;
+    personal.textContent = data.personal;
+    farming.textContent = data.farming;
   }
 
   async function loadShop(){
     const { data:items } = await supabase
-      .from("shop_items").select("*").order("price");
+      .from("shop_items")
+      .select("*")
+      .order("price");
 
     shop.innerHTML="";
     items.forEach(i=>{
       const disabled = balances.personal < i.price;
-      shop.innerHTML+=`
+      shop.innerHTML += `
         <div class="product">
           <h3>${i.title}</h3>
           <div class="price">${i.price} R$</div>
           <button ${disabled?"disabled":""}
-            onclick="buy('${i.id}',${i.price})">
-            Купити
-          </button>
-          ${disabled?'<div class="error">Недостатньо коштів</div>':""}
+            onclick="buy('${i.id}',${i.price})">Купити</button>
         </div>`;
     });
   }
 
-  window.buy = async (id,price)=>{
+  window.buy = async (id, price)=>{
     if(balances.personal < price) return;
 
     balances.personal -= price;
     await supabase.from("balances")
-      .update({personal:balances.personal})
-      .eq("user_id",userId);
+      .update({ personal: balances.personal })
+      .eq("user_id", userId);
 
-    await supabase.from("purchases")
-      .insert({user_id:userId,item_id:id,price,from_balance:"personal"});
-
-    personal.textContent=balances.personal;
+    personal.textContent = balances.personal;
+    launchConfetti(80);
     loadShop();
   };
 
-  document.getElementById("withdrawBtn").onclick = async ()=>{
-    withdrawError.textContent="";
+  withdrawBtn.onclick = async ()=>{
+    const msg = withdrawMsg;
+    msg.textContent = "";
+
     const type = withdrawBalance.value;
     const amount = Number(withdrawAmount.value);
-    const nick = robloxNick.value.trim();
 
-    if(!nick || amount<=0){
-      withdrawError.textContent="Заповніть поля";
-      return;
-    }
-    if(balances[type] < amount){
-      withdrawError.textContent="Недостатньо коштів";
+    if(balances[type] < amount || amount <= 0 || !robloxNick.value.trim()){
+      msg.className="error fail";
+      msg.textContent="Помилка зняття";
       return;
     }
 
-    balances[type]-=amount;
+    balances[type] -= amount;
+
     await supabase.from("balances")
-      .update({[type]:balances[type]})
-      .eq("user_id",userId);
+      .update({ [type]: balances[type] })
+      .eq("user_id", userId);
 
     await supabase.from("withdraw_requests")
-      .insert({user_id:userId,roblox_nick:nick,amount,from_balance:type});
+      .insert({
+        user_id:userId,
+        roblox_nick:robloxNick.value,
+        amount,
+        from_balance:type
+      });
 
-    document.getElementById(type).textContent=balances[type];
+    document.getElementById(type).textContent = balances[type];
+    msg.className="error success";
+    msg.textContent="Заявка створена";
+    withdrawAmount.value="";
+
+    launchConfetti(120);
   };
+
+  function launchConfetti(count){
+    confetti.innerHTML="";
+    const colors=["#22c55e","#38bdf8","#6366f1","#facc15"];
+    for(let i=0;i<count;i++){
+      const s=document.createElement("span");
+      s.style.left=Math.random()*100+"vw";
+      s.style.background=colors[Math.floor(Math.random()*colors.length)];
+      s.style.animationDuration=(Math.random()*1.5+1)+"s";
+      confetti.appendChild(s);
+    }
+    setTimeout(()=>confetti.innerHTML="",2500);
+  }
 
   if(userId) initProfile();
 });
