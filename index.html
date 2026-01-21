@@ -5,7 +5,10 @@
 <title>Сайт</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- ✅ Supabase бібліотека -->
+<!-- 🔹 ІКОНКА (favicon) -->
+<link rel="icon" href="favicon.png">
+
+<!-- 🔹 Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -116,45 +119,47 @@ button:disabled{background:#334155;color:#94a3b8;cursor:not-allowed}
 <div class="confetti" id="confetti"></div>
 
 <script>
-/* ======================================================
-   🔑 ТУТ ПИШЕШ ANON KEY І URL
-   ====================================================== */
-
+/* =======================
+   🔑 SUPABASE — СЮДИ ANON
+   ======================= */
 const supabase = supabase.createClient(
-  "https://yknskbeqyahkxwceqflr.supabase.co",   // ← СЮДИ встав URL
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrbnNrYmVxeWFoa3h3Y2VxZmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5NzA1OTAsImV4cCI6MjA4NDU0NjU5MH0.UaGcGRMdcPHv9bujNEtSjoL6OYy6XnmpxgWR9W2029M"                     // ← СЮДИ встав ANON KEY
+  "https://yknskbeqyahkxwceqflr.supabase.co"   // ← ТВОЄ
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrbnNrYmVxeWFoa3h3Y2VxZmxyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODk3MDU5MCwiZXhwIjoyMDg0NTQ2NTkwfQ.x1nX_ye1hNCi48_fkF5vfn7wc_BUbgnJ4giMolV9drU"                     // ← ТВОЄ
 );
-
-/* ====================================================== */
 
 let userId = localStorage.getItem("user_id");
 let balances = { personal:0, farming:0 };
-let limits = {
-  personal_limit:0, farming_limit:0,
-  personal_used:0, farming_used:0
+let limits = { personal_limit:0,farming_limit:0,personal_used:0,farming_used:0 };
+
+/* ===== VIEW ===== */
+window.showRegister = function(){
+  loginView.classList.add("hidden");
+  registerView.classList.remove("hidden");
+};
+window.showLogin = function(){
+  loginView.classList.remove("hidden");
+  registerView.classList.add("hidden");
 };
 
-/* VIEW */
-function showLogin(){loginView.classList.remove("hidden");registerView.classList.add("hidden")}
-function showRegister(){loginView.classList.add("hidden");registerView.classList.remove("hidden")}
-
-/* AUTH */
-async function login(){
+/* ===== AUTH ===== */
+window.login = async function(){
   loginError.textContent="";
   const l=loginLogin.value.trim();
   const p=loginPassword.value;
+  if(!l||!p){loginError.textContent="Заповніть поля";return;}
 
   const { data } = await supabase
     .from("users").select("id,password").eq("login",l).single();
 
   if(!data||data.password!==p){
-    loginError.textContent="Невірні дані"; return;
+    loginError.textContent="Невірні дані";return;
   }
   localStorage.setItem("user_id",data.id);
-  userId=data.id; initProfile();
-}
+  userId=data.id;
+  initProfile();
+};
 
-async function register(){
+window.register = async function(){
   regError.textContent="";
   const l=regLogin.value.trim();
   const p=regPassword.value;
@@ -171,106 +176,8 @@ async function register(){
     .insert({user_id:data.id,personal_limit:500,farming_limit:1000});
 
   localStorage.setItem("user_id",data.id);
-  userId=data.id; initProfile();
-}
+  userId=data.id;
+  initProfile();
+};
 
-function logout(){localStorage.removeItem("user_id");location.reload();}
-
-/* PROFILE */
-async function initProfile(){
-  loginView.classList.add("hidden");
-  registerView.classList.add("hidden");
-  profileView.classList.remove("hidden");
-  await loadBalances();
-  await loadLimits();
-  await loadShop();
-}
-
-async function loadBalances(){
-  const { data } = await supabase
-    .from("balances").select("personal,farming")
-    .eq("user_id",userId).single();
-  balances=data;
-  personal.textContent=data.personal;
-  farming.textContent=data.farming;
-}
-
-async function loadLimits(){
-  const { data } = await supabase
-    .from("withdraw_limits").select("*")
-    .eq("user_id",userId).single();
-  limits=data;
-}
-
-/* SHOP */
-async function loadShop(){
-  const { data:items } = await supabase
-    .from("shop_items").select("*").order("price");
-  shop.innerHTML="";
-  items.forEach(i=>{
-    const disabled=balances.personal<i.price;
-    shop.innerHTML+=`
-      <div class="product">
-        <h3>${i.title}</h3>
-        <div class="price">${i.price} R$</div>
-        <button ${disabled?"disabled":""}
-          onclick="buy('${i.id}',${i.price})">Купити</button>
-        ${disabled?'<div class="error">Недостатньо коштів</div>':""}
-      </div>`;
-  });
-}
-
-async function buy(id,price){
-  if(balances.personal<price)return;
-  overlay.style.display="flex";
-  await new Promise(r=>setTimeout(r,500));
-
-  balances.personal-=price;
-  await supabase.from("balances")
-    .update({personal:balances.personal})
-    .eq("user_id",userId);
-
-  await supabase.from("purchases")
-    .insert({user_id:userId,item_id:id,price,from_balance:"personal"});
-
-  personal.textContent=balances.personal;
-  overlay.style.display="none";
-  launchConfetti(price);
-  loadShop();
-}
-
-/* WITHDRAW */
-function canWithdraw(type,amount){
-  if(type==="personal")
-    return limits.personal_used+amount<=limits.personal_limit;
-  return limits.farming_used+amount<=limits.farming_limit;
-}
-
-async function withdraw(){
-  withdrawError.textContent="";
-  const type=withdrawBalance.value;
-  const amount=Number(withdrawAmount.value);
-  const nick=robloxNick.value.trim();
-
-  if(!nick||amount<=0){
-    withdrawError.textContent="Заповніть всі поля";return;
-  }
-  if(balances[type]<amount){
-    withdrawError.textContent="Недостатньо коштів";return;
-  }
-  if(!canWithdraw(type,amount)){
-    withdrawError.textContent="Перевищено ліміт";return;
-  }
-
-  balances[type]-=amount;
-  await supabase.from("balances")
-    .update({[type]:balances[type]})
-    .eq("user_id",userId);
-
-  await supabase.from("withdraw_requests")
-    .insert({user_id:userId,roblox_nick:nick,amount,from_balance:type});
-
-  if(type==="personal") limits.personal_used+=amount;
-  else limits.farming_used+=amount;
-
-  await supabase
+window.logo
