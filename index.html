@@ -4,42 +4,41 @@
 <meta charset="UTF-8">
 <title>Сайт</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="icon" href="data:,">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 body{margin:0;font-family:Arial;background:#0b1220;color:#e5e7eb}
-.container{max-width:1000px;margin:40px auto;padding:20px}
+.container{max-width:1100px;margin:40px auto;padding:20px}
 .card{background:#020617;border-radius:18px;padding:20px;margin-bottom:20px}
-input,select,button{width:100%;padding:12px;margin-top:10px;border-radius:12px;border:none}
-input,select{background:#0f172a;color:white}
-button{background:#6366f1;color:white;font-weight:bold;cursor:pointer}
 .hidden{display:none}
 
-.balance-box{display:flex;gap:20px;justify-content:space-between}
+input,select,button{
+  width:100%;padding:12px;margin-top:10px;
+  border-radius:12px;border:none
+}
+input,select{background:#0f172a;color:white}
+button{background:#6366f1;color:white;font-weight:bold;cursor:pointer}
+
+.balance-box{display:flex;justify-content:space-between;gap:20px}
 
 .shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
 .product{background:#020617;padding:16px;border-radius:14px}
 
 .list-item{
-  display:flex;
-  justify-content:space-between;
-  background:#020617;
-  padding:12px;
-  border-radius:12px;
-  margin-top:8px
+  display:flex;justify-content:space-between;
+  background:#020617;padding:12px;
+  border-radius:12px;margin-top:8px
 }
 .pending{color:#facc15}
 .done{color:#22c55e}
 
-/* MAIN BUTTONS */
+/* main buttons */
 .main-btn{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:12px 18px;
-  border-radius:14px;
-  color:white;
-  font-weight:bold;
+  display:flex;align-items:center;gap:8px;
+  padding:12px 18px;border-radius:14px;
+  color:white;font-weight:bold
 }
 .main-btn img{width:18px;height:18px}
 </style>
@@ -65,7 +64,7 @@ button{background:#6366f1;color:white;font-weight:bold;cursor:pointer}
     <div id="mainButtons" style="display:flex;gap:12px;flex-wrap:wrap"></div>
   </div>
 
-  <!-- BALANCE -->
+  <!-- BALANCES -->
   <div class="card balance-box">
     <div>Особистий: <b id="personal">0</b></div>
     <div>Фармилка: <b id="farming">0</b></div>
@@ -104,34 +103,42 @@ button{background:#6366f1;color:white;font-weight:bold;cursor:pointer}
 </div>
 
 <script>
-const supabase = supabase.createClient(
+/* ===== SUPABASE (ОДИН РАЗ) ===== */
+const supabase = window.supabase.createClient(
   "https://yknskbeqyahkxwceqflr.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrbnNrYmVxeWFoa3h3Y2VxZmxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5NzA1OTAsImV4cCI6MjA4NDU0NjU5MH0.UaGcGRMdcPHv9bujNEtSjoL6OYy6XnmpxgWR9W2029M"
 );
 
-let userId=null, balances={};
+let userId = null;
+let balances = {};
 
+/* ===== LOGIN ===== */
 loginBtn.onclick = async ()=>{
   const { data } = await supabase
     .from("users")
     .select("id,password")
-    .eq("login",loginLogin.value)
+    .eq("login", loginLogin.value)
     .single();
 
-  if(!data || data.password!==loginPassword.value) return;
+  if(!data || data.password !== loginPassword.value) return;
 
-  userId=data.id;
+  userId = data.id;
   loginView.classList.add("hidden");
   profileView.classList.remove("hidden");
   loadAll();
 };
 
+/* ===== LOAD ALL ===== */
 async function loadAll(){
-  const b = await supabase.from("balances")
-    .select("*").eq("user_id",userId).single();
-  balances=b.data;
-  personal.textContent=balances.personal;
-  farming.textContent=balances.farming;
+  const b = await supabase
+    .from("balances")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  balances = b.data;
+  personal.textContent = balances.personal;
+  farming.textContent = balances.farming;
 
   loadMainButtons();
   loadShop();
@@ -139,129 +146,140 @@ async function loadAll(){
   loadPurchaseHistory();
 }
 
-/* MAIN BUTTONS */
+/* ===== MAIN BUTTONS ===== */
 async function loadMainButtons(){
   const { data } = await supabase
     .from("main_buttons")
     .select("*")
-    .eq("active",true)
+    .eq("active", true)
     .order("sort");
 
-  mainButtons.innerHTML="";
+  mainButtons.innerHTML = "";
   data.forEach(btn=>{
-    const b=document.createElement("button");
-    b.className="main-btn";
-    b.style.background=btn.color;
+    const b = document.createElement("button");
+    b.className = "main-btn";
+    b.style.background = btn.color || "#6366f1";
+
     if(btn.icon){
       if(btn.icon.startsWith("http")){
-        const img=document.createElement("img");
-        img.src=btn.icon;
+        const img = document.createElement("img");
+        img.src = btn.icon;
         b.appendChild(img);
       }else{
-        const s=document.createElement("span");
-        s.textContent=btn.icon;
+        const s = document.createElement("span");
+        s.textContent = btn.icon;
         b.appendChild(s);
       }
     }
-    const t=document.createElement("span");
-    t.textContent=btn.title;
+
+    const t = document.createElement("span");
+    t.textContent = btn.title;
     b.appendChild(t);
-    b.onclick=()=>window.open(btn.link,"_blank");
+
+    b.onclick = ()=>window.open(btn.link, "_blank");
     mainButtons.appendChild(b);
   });
 }
 
-/* SHOP */
+/* ===== SHOP ===== */
 async function loadShop(){
   const { data } = await supabase.from("shop_items").select("*");
-  shop.innerHTML="";
+  shop.innerHTML = "";
+
   data.forEach(i=>{
-    shop.innerHTML+=`
+    shop.innerHTML += `
       <div class="product">
         <b>${i.title}</b>
-        <div>${i.price>0?i.price+" R$":"Безкоштовно"}</div>
+        <div>${i.price>0 ? i.price+" R$" : "Безкоштовно"}</div>
         <button onclick="buy('${i.id}',${i.price},'${i.buy_link||""}')">
-          ${i.price===0 && i.buy_link?"Перейти":"Купити"}
+          ${i.price===0 && i.buy_link ? "Перейти" : "Купити"}
         </button>
-      </div>`;
+      </div>
+    `;
   });
 }
 
-window.buy = async(id,price,link)=>{
-  if(price===0 && link){
-    window.open(link,"_blank");return;
+window.buy = async(id, price, link)=>{
+  if(price === 0 && link){
+    window.open(link, "_blank");
+    return;
   }
-  if(balances.personal<price) return;
+  if(balances.personal < price) return;
 
-  balances.personal-=price;
+  balances.personal -= price;
+
   await supabase.from("balances")
-    .update({personal:balances.personal})
-    .eq("user_id",userId);
+    .update({ personal: balances.personal })
+    .eq("user_id", userId);
 
   await supabase.from("purchases")
-    .insert({user_id:userId,item_id:id,price});
+    .insert({ user_id:userId, item_id:id, price });
 
-  personal.textContent=balances.personal;
+  personal.textContent = balances.personal;
   loadPurchaseHistory();
 };
 
-/* WITHDRAW */
+/* ===== WITHDRAW ===== */
 withdrawBtn.onclick = async ()=>{
-  const amount=Number(withdrawAmount.value);
-  const type=withdrawBalance.value;
-  if(amount<=0 || balances[type]<amount) return;
+  const amount = Number(withdrawAmount.value);
+  const type = withdrawBalance.value;
 
-  balances[type]-=amount;
+  if(amount <= 0 || balances[type] < amount) return;
+
+  balances[type] -= amount;
+
   await supabase.from("balances")
-    .update({[type]:balances[type]})
-    .eq("user_id",userId);
+    .update({ [type]: balances[type] })
+    .eq("user_id", userId);
 
   await supabase.from("withdraw_requests")
     .insert({
-      user_id:userId,
-      roblox_nick:robloxNick.value,
+      user_id: userId,
+      roblox_nick: robloxNick.value,
       amount,
-      from_balance:type
+      from_balance: type
     });
 
-  document.getElementById(type).textContent=balances[type];
+  document.getElementById(type).textContent = balances[type];
   loadWithdrawHistory();
 };
 
-/* HISTORIES */
+/* ===== HISTORIES ===== */
 async function loadWithdrawHistory(){
   const { data } = await supabase
     .from("withdraw_requests")
     .select("*")
-    .eq("user_id",userId)
-    .order("created_at",{ascending:false});
+    .eq("user_id", userId)
+    .order("created_at", { ascending:false });
 
-  withdrawHistory.innerHTML="";
+  withdrawHistory.innerHTML = "";
   data.forEach(r=>{
-    withdrawHistory.innerHTML+=`
+    withdrawHistory.innerHTML += `
       <div class="list-item">
         <span>${r.roblox_nick} — ${r.amount}</span>
         <span class="${r.status==='done'?'done':'pending'}">
           ${r.status==='done'?'✅ виконано':'⏳ очікує'}
         </span>
-      </div>`;
+      </div>
+    `;
   });
 }
 
 async function loadPurchaseHistory(){
   const { data } = await supabase
     .from("purchases")
-    .select("price,shop_items(title)")
-    .eq("user_id",userId)
-    .order("created_at",{ascending:false});
+    .select("price, shop_items(title)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending:false });
 
-  purchaseHistory.innerHTML="";
+  purchaseHistory.innerHTML = "";
   data.forEach(p=>{
-    purchaseHistory.innerHTML+=`
+    purchaseHistory.innerHTML += `
       <div class="list-item">
-        <span>${p.shop_items?.title||"Товар"}</span>
+        <span>${p.shop_items?.title || "Товар"}</span>
         <span>${p.price}</span>
-      </div>`;
+      </div>
+    `;
   });
 }
 </script>
